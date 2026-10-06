@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sentinel</title>
+<meta name="theme-color" content="#E8590C">
+<meta name="description" content="Weekly NSE momentum book: your orders, forecasts and an expected-vs-actual ledger.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <nav class="nav" aria-label="Sections">
+    <div class="brand"><b>Sentinel</b><span>Momentum book, weekly</span></div>
+    <div class="navlist" id="navlist"></div>
+    <div class="navfoot">
+      <div class="chip" id="fresh"></div>
+      <div class="chip" id="syncChip"></div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="top">
+      <div><h1 id="vTitle">Today</h1><div class="sub" id="vSub"></div></div>
+      <span class="spacer"></span>
+      <div id="banner" hidden></div>
+      <div class="chip" id="stateChip"></div>
+    </div>
+
+    <div class="views">
+      <section class="view" id="v-today" hidden>
+        <div class="col">
+          <div class="panel fixed"><div class="pb" id="today"></div></div>
+          <div class="panel fixed">
+            <div class="ph"><h2>Market pulse</h2><span class="spacer"></span><button data-go="analysis">Full analysis</button></div>
+            <div class="pb" id="pulse"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><h2 id="ordersTitle">Your orders</h2><span class="sub" id="ordersSub"></span><span class="spacer"></span><button data-go="portfolio">Update holdings</button></div>
+          <div class="pb">
+            <div class="orders" id="orders"></div>
+            <div id="doneBox" hidden style="margin-top:12px"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="v-portfolio" hidden>
+        <div class="panel">
+          <div class="ph"><h2>Your holdings</h2><span class="sub">Your orders are computed from this table.</span></div>
+          <div class="pb">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:end;margin-bottom:12px">
+              <div>
+                <label class="lbl" for="capital">Total money in this strategy (stocks plus cash waiting to go in)</label>
+                <div class="cap"><span>Rs</span><input id="capital" type="number" inputmode="numeric" min="0" step="1000" placeholder="500000"></div>
+              </div>
+              <div><span class="lbl">Stocks to hold</span><div class="seg" id="slots"></div></div>
+            </div>
+            <button class="primary bigbtn" id="btnShot" type="button">Add screenshots from gallery</button>
+            <input id="shotFile" type="file" accept="image/*" multiple hidden>
+            <div id="shotBox" hidden>
+              <div class="progress"><i id="shotBar"></i></div>
+              <div class="sub" id="shotStatus"></div>
+            </div>
+            <div class="sub" style="margin:8px 0 10px">Holdings screen from Kite, Groww, Upstox or similar. Text is read on this phone; nothing is uploaded. Cells in yellow need a check.</div>
+            <div class="scroll"><table class="edit" id="editTbl"></table></div>
+            <div class="btnrow" style="margin-top:10px">
+              <button id="btnAddRow" type="button">Add row</button>
+              <button id="btnClear" type="button">Clear all</button>
+              <span class="spacer"></span>
+              <button id="btnSave" class="primary" type="button">Save snapshot</button>
+            </div>
+            <div class="sub" id="saveNote" style="margin-top:6px"></div>
+            <details id="rawBox" hidden style="margin-top:8px"><summary>Text read from the screenshots</summary><pre class="sub" id="rawText" style="white-space:pre-wrap"></pre></details>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><h2>Your P&amp;L: expected vs actual</h2></div>
+          <div class="pb">
+            <div class="sub" style="margin-bottom:8px">Each snapshot is scored against what the model expected for the stocks you held through both snapshots.</div>
+            <div class="scroll"><table class="tbl" id="mineTbl"></table></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="v-forecast" hidden>
+        <div class="panel">
+          <div class="ph"><h2>Stocks</h2></div>
+          <div class="pb slist" id="slist"></div>
+        </div>
+        <div class="charts">
+          <div class="panel">
+            <div class="ph"><h2>The market, next 4 weeks</h2><div class="legend" id="mktLegend"></div></div>
+            <div class="pb cbox"><div class="chart" id="mktChart"></div><div class="sub" id="mktNote" style="margin-top:6px"></div></div>
+          </div>
+          <div class="panel">
+            <div class="ph"><h2 id="stkTitle">Stock forecast</h2><div class="legend" id="stkLegend"></div></div>
+            <div class="pb cbox"><div class="chart" id="stkChart"></div><div class="sub" id="stkNote" style="margin-top:6px"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="v-analysis" hidden>
+        <div class="panel">
+          <div class="ph"><h2>What we are doing</h2></div>
+          <div class="pb">
+            <div class="mini" id="aDoingMini"></div>
+            <div class="prose" id="aDoing"></div>
+            <h3 class="eyebrow" style="margin:10px 0 4px">Book minus universe, rolling 13 weeks</h3>
+            <div class="chart fixedh" id="rollChart"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><h2>How the market is running</h2></div>
+          <div class="pb">
+            <div class="mini" id="aMktMini"></div>
+            <div class="prose" id="aMkt"></div>
+            <h3 class="eyebrow" style="margin:10px 0 4px">Nifty 50 and its trend lines, 1 year</h3>
+            <div class="legend" id="niftyLegend"></div>
+            <div class="chart fixedh" id="niftyChart"></div>
+            <h3 class="eyebrow" style="margin:14px 0 4px">Breadth: share of liquid stocks above their averages</h3>
+            <div class="legend" id="breadthLegend"></div>
+            <div class="chart fixedh" id="breadthChart"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><h2>How we are doing against our predictions</h2></div>
+          <div class="pb">
+            <div class="mini" id="aPredMini"></div>
+            <div class="prose" id="aPred"></div>
+            <h3 class="eyebrow" style="margin:10px 0 4px">Book, last 52 weeks: forecast vs actual</h3>
+            <div class="legend" id="pathLegend"></div>
+            <div class="chart fixedh" id="pathChart"></div>
+            <h3 class="eyebrow" style="margin:14px 0 4px">Year by year (walk-forward)</h3>
+            <div class="scroll"><table class="tbl" id="yearTbl"></table></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="v-ledger" hidden>
+        <div class="kpis" id="calKpis"></div>
+        <div class="two">
+          <div class="panel"><div class="ph"><h2>Model book, week by week</h2></div><div class="pb"><div class="scroll"><table class="tbl" id="bookPredTbl"></table></div></div></div>
+          <div class="panel"><div class="ph"><h2>Every stock forecast</h2><span class="sub">Tap a row for its chart.</span></div><div class="pb"><div class="scroll"><table class="tbl" id="predTbl"></table></div></div></div>
+        </div>
+      </section>
+
+      <section class="view" id="v-book" hidden>
+        <div class="panel">
+          <div class="ph"><h2>The model book</h2><span class="sub" id="bookSub"></span></div>
+          <div class="pb"><div class="scroll"><table class="tbl" id="bookTbl"></table></div><div id="preview" class="sub" style="margin-top:10px"></div></div>
+        </div>
+      </section>
+
+      <section class="view" id="v-record" hidden>
+        <div class="kpis" id="kpis"></div>
+        <div class="panel">
+          <div class="ph"><h2>Growth of 100</h2><div class="legend" id="perfLegend"></div><span class="spacer"></span><div id="ranges" class="seg"></div></div>
+          <div class="pb cbox"><div class="chart" id="perfChart"></div><div class="sub" id="perfNote" style="margin-top:6px"></div></div>
+        </div>
+        <div class="two">
+          <div class="panel"><div class="ph"><h2>Weekly reviews</h2></div><div class="pb"><div class="scroll"><table class="tbl" id="rebTbl"></table></div></div></div>
+          <div class="panel"><div class="ph"><h2>Closed trades</h2><span class="sub">most recent 40</span></div><div class="pb"><div class="scroll"><table class="tbl" id="closedTbl"></table></div></div></div>
+        </div>
+      </section>
+
+      <section class="view" id="v-rules" hidden>
+        <div class="panel"><div class="ph"><h2>The rule</h2></div><div class="pb prose" id="rules"></div></div>
+        <div class="panel"><div class="ph"><h2>Latest ranking</h2><span class="sub">top 40, context only</span></div><div class="pb"><div class="scroll"><table class="tbl" id="topTbl"></table></div></div></div>
+      </section>
+
+      <section class="view" id="v-settings" hidden>
+        <div class="panel">
+          <div class="ph"><h2>Notifications</h2></div>
+          <div class="pb">
+            <div class="sub" id="notifStatus" style="margin-bottom:10px"></div>
+            <div class="btnrow" style="margin-bottom:10px">
+              <button class="primary" id="btnNotif" type="button">Turn on notifications</button>
+              <button id="btnTest" type="button">Send a test</button>
+            </div>
+            <label class="toggle"><span>Weekly review is in (Friday evening or Monday morning)</span><input type="checkbox" checked disabled></label>
+            <label class="toggle"><span>Monday 9:05 reminder if the orders are not marked placed</span><input type="checkbox" id="prefRemind"></label>
+            <label class="toggle"><span>A holding slips past rank 35 during the week</span><input type="checkbox" id="prefDrift"></label>
+            <h3 class="eyebrow" style="margin:14px 0 6px">Recent</h3>
+            <div class="scroll"><table class="tbl" id="notifTbl"></table></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><h2>This phone</h2></div>
+          <div class="pb">
+            <div class="btnrow" style="margin-bottom:12px"><button class="primary" id="btnInstall" type="button" hidden>Install app</button><button id="btnSync" type="button">Sync now</button></div>
+            <dl class="kv" id="devKv"></dl>
+            <div class="sub" style="margin-top:12px">Market data comes from your laptop's morning update (and a Friday-evening run). Your holdings, money and snapshots are saved on this phone and backed up to your Sentinel database.</div>
+            <div class="btnrow" style="margin-top:14px"><button id="btnUnpair" type="button">Unpair this phone</button></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="pair" id="pair" hidden>
+  <div class="card">
+    <div class="eyebrow">Sentinel</div>
+    <h2>Pair this phone</h2>
+    <div class="sub">Scan the pairing QR code on your laptop (morning/.pairing/pair-phone.png) with the phone camera. It opens this app already paired. Or paste the pairing code from that folder.</div>
+    <label class="lbl" for="pairCode">Pairing code</label>
+    <input id="pairCode" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button class="primary bigbtn" id="btnPair" type="button">Pair</button>
+    <div class="sub" id="pairNote"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+<script src="config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
