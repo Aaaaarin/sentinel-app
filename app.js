@@ -7,7 +7,7 @@ import { makePlan } from "./plan.js";
 import { readScreenshots, buildIndex } from "./ocr.js";
 
 const CFG = window.SENTINEL || {};
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -234,9 +234,38 @@ function renderOrders(P) {
 }
 
 // ---------- portfolio ----------
+// ---------- photo batch: every photo until "Done" is the same moment in time ----------
+let session = LS.get("shotSession", null);   // { started, photos, rows, total_pnl, lines }
+const editRows = () => (session ? session.rows : twin.holdings);
+function saveSession() { if (session) LS.set("shotSession", session); else LS.del("shotSession"); }
+function touchRows() { if (session) { saveSession(); renderAll(); } else { twin.source = "edited"; persist(); renderAll(); } }
+function mergeRows(into, rows) {
+  // the same stock in two overlapping screenshots is one holding, not two
+  const at = new Map(into.map((r, i) => [r.symbol, i]));
+  rows.forEach((r) => {
+    if (!at.has(r.symbol)) { at.set(r.symbol, into.length); into.push({ ...r, check: { ...(r.check || {}) } }); return; }
+    const o = into[at.get(r.symbol)];
+    ["qty", "avg", "ltp"].forEach((k) => {
+      if (o[k] == null && r[k] != null) { o[k] = r[k]; o.check[k] = !!(r.check && r.check[k]); }
+      else if (o[k] != null && r[k] != null && Math.abs(o[k] - r[k]) / Math.max(o[k], 1) > 0.01) o.check[k] = true;
+    });
+  });
+  return into;
+}
+function renderSession() {
+  const on = !!session;
+  $("sessBox").hidden = !on; $("btnShot").hidden = on; $("normalBtns").style.display = on ? "none" : "contents";
+  if (!on) return;
+  const n = session.rows.length, doubt = session.rows.filter((r) => Object.values(r.check || {}).some(Boolean)).length;
+  $("sessTitle").textContent = `New portfolio: ${session.photos} photo${session.photos === 1 ? "" : "s"}, ${n} stock${n === 1 ? "" : "s"} so far`;
+  $("sessSub").textContent = (doubt ? `${doubt} with a yellow cell to check. ` : "") + "Add the rest of your holdings list, then tap Done. Done replaces your current holdings with this list and saves a snapshot.";
+}
+
 function renderEditor() {
+  renderSession();
+  const rowsNow = editRows();
   let h = '<thead><tr><th>Symbol</th><th class="n">Qty</th><th class="n">Avg price</th><th class="n">Last price</th><th class="n hide-m">P&amp;L</th><th>Rule says</th><th></th></tr></thead><tbody>';
-  twin.holdings.forEach((r, i) => {
+  rowsNow.forEach((r, i) => {
     const rk = rankOf(r.symbol), p = r.ltp > 0 ? r.ltp : lastPx(r.symbol), ck = r.check || {};
     const pl = r.avg > 0 && p && r.qty ? (p - r.avg) * r.qty : null;
     const say = !r.symbol ? "" : rk && rk <= R.sell_rank
@@ -249,23 +278,23 @@ function renderEditor() {
       `<td class="n">${inp("ltp", "number", r.ltp, `step="0.01" inputmode="decimal" placeholder="${lastPx(r.symbol) || ""}" aria-label="Last price"`)}</td>` +
       `<td class="n hide-m mono ${cls(pl)}">${pl == null ? "-" : rsS(pl)}</td><td>${say}</td><td><button data-del="${i}" type="button" aria-label="Remove row">Remove</button></td></tr>`;
   });
-  if (!twin.holdings.length) h += '<tr><td colspan="7" class="sub">No holdings yet. Add a screenshot or type them in.</td></tr>';
+  if (!rowsNow.length) h += `<tr><td colspan="7" class="sub">${session ? "Nothing recognised yet. Add another photo or type the stocks in." : "No holdings yet. Add screenshots or type them in."}</td></tr>`;
   $("editTbl").innerHTML = h + "</tbody>";
 }
 $("editTbl").addEventListener("change", (e) => {
   const el = e.target, i = el.getAttribute("data-i"), k = el.getAttribute("data-k");
   if (i == null) return;
-  const row = twin.holdings[+i];
+  const row = editRows()[+i];
   row[k] = k === "symbol" ? el.value.trim().toUpperCase() : num(el.value);
   if (row.check) row.check[k] = false;
-  twin.source = "edited"; persist(); renderAll();
+  touchRows();
 });
 $("editTbl").addEventListener("click", (e) => {
   const d = e.target.getAttribute && e.target.getAttribute("data-del");
   if (d == null) return;
-  twin.holdings.splice(+d, 1); persist(); renderAll();
+  editRows().splice(+d, 1); touchRows();
 });
-$("btnAddRow").onclick = () => { twin.holdings.push({ symbol: "", qty: null, avg: null, ltp: null }); renderEditor(); };
+$("btnAddRow").onclick = () => { editRows().push({ symbol: "", qty: null, avg: null, ltp: null, check: {} }); if (session) saveSession(); renderEditor(); };
 $("btnClear").onclick = () => {
   const b = $("btnClear");
   if (b.dataset.armed) { delete b.dataset.armed; twin.holdings = []; b.textContent = "Clear all"; persist(); renderAll(); return; }
@@ -277,30 +306,58 @@ function renderSlots() { $("slots").innerHTML = [10, 15, 20].map((n) => `<button
 $("slots").onclick = (e) => { const n = e.target.getAttribute && e.target.getAttribute("data-n"); if (!n) return; twin.slots = +n; persist(); renderSlots(); renderAll(); };
 
 $("btnShot").onclick = () => $("shotFile").click();
+$("btnMore").onclick = () => $("shotFile").click();
+$("btnCancelShots").onclick = () => {
+  const b = $("btnCancelShots");
+  if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Tap again to discard"; setTimeout(() => { delete b.dataset.armed; b.textContent = "Cancel"; }, 3000); return; }
+  delete b.dataset.armed; b.textContent = "Cancel";
+  session = null; saveSession(); $("shotBox").hidden = true; renderAll(); toast("Photos discarded. Your holdings are unchanged.");
+};
+$("btnDoneShots").onclick = () => {
+  const rows = session.rows.filter((r) => r.symbol);
+  if (!rows.length) { toast("No stocks in this batch yet."); return; }
+  const noQty = rows.filter((r) => !(r.qty > 0)).map((r) => r.symbol);
+  if (noQty.length) { toast("Fill in the quantity for " + noQty.slice(0, 4).join(", ") + (noQty.length > 4 ? "..." : "")); return; }
+  twin.holdings = rows.map((r) => ({ symbol: r.symbol, qty: r.qty, avg: r.avg, ltp: r.ltp, check: r.check }));
+  twin.shot = { at: new Date().toISOString(), total_pnl: session.total_pnl ?? null, photos: session.photos };
+  twin.source = "screenshot";
+  const photos = session.photos;
+  session = null; saveSession(); $("shotBox").hidden = true;
+  persist(); saveSnapshot("photos");
+  toast(`Portfolio updated: ${rows.length} stocks from ${photos} photo${photos === 1 ? "" : "s"}. Snapshot saved.`);
+  show("today");
+};
 $("shotFile").onchange = async () => {
   const files = Array.from($("shotFile").files || []);
   $("shotFile").value = "";
   if (!files.length) return;
-  $("shotBox").hidden = false; $("btnShot").disabled = true;
+  $("shotBox").hidden = false; $("btnShot").disabled = true; $("btnMore").disabled = true;
   const bar = $("shotBar"), st = $("shotStatus");
   bar.style.width = "3%"; st.textContent = "Starting the text reader (first time downloads about 7 MB, then it works offline)";
   try {
     if (!OCRINDEX) OCRINDEX = buildIndex(D.names || {}, RANKS);
     const r = await readScreenshots(files, { index: OCRINDEX, ranks: RANKS }, (label, p) => { st.textContent = label + (p ? " " + Math.round(p * 100) + "%" : ""); bar.style.width = Math.max(3, Math.round(p * 100)) + "%"; });
     bar.style.width = "100%";
-    $("rawBox").hidden = false; $("rawText").textContent = r.lines.join("\n");
-    if (!r.holdings.length) { st.textContent = "No holdings recognised. Try the holdings screen itself, or type them in below."; return; }
-    twin.holdings = r.holdings.map((h) => ({ symbol: h.symbol, qty: h.qty, avg: h.avg, ltp: h.ltp, check: h.check }));
-    twin.shot = { at: new Date().toISOString(), total_pnl: r.total_pnl };
-    twin.source = "screenshot"; persist(); renderAll();
-    const doubt = r.holdings.filter((h) => Object.values(h.check || {}).some(Boolean)).length;
-    st.textContent = `Read ${r.holdings.length} holdings${doubt ? `, ${doubt} with a yellow cell to check` : ""}. Fix anything wrong, then tap Save snapshot.`;
+    $("rawBox").hidden = false;
+    if (!session) session = { started: new Date().toISOString(), photos: 0, rows: [], total_pnl: null, lines: [] };
+    const before = session.rows.length;
+    mergeRows(session.rows, r.holdings);
+    session.photos += files.length;
+    if (session.total_pnl == null && r.total_pnl != null) session.total_pnl = r.total_pnl;
+    session.lines = session.lines.concat(r.lines).slice(-400);
+    saveSession(); renderAll();
+    $("rawText").textContent = session.lines.join("\n");
+    const added = session.rows.length - before;
+    st.textContent = r.holdings.length
+      ? `Found ${r.holdings.length} stock${r.holdings.length === 1 ? "" : "s"} in ${files.length === 1 ? "this photo" : "these photos"} (${added} new to the list). Add more photos, or tap Done.`
+      : "No stocks recognised in that photo. Try the holdings list itself, or type them in below.";
   } catch (e) {
     st.textContent = e.message || "Could not read the screenshot.";
-  } finally { $("btnShot").disabled = false; }
+  } finally { $("btnShot").disabled = false; $("btnMore").disabled = false; }
 };
 
-$("btnSave").onclick = () => {
+$("btnSave").onclick = () => saveSnapshot("manual");
+function saveSnapshot(source) {
   const P = makePlan(D, twin), bw = F.book_week || {};
   const rows = twin.holdings.filter((h) => h.symbol && h.qty > 0);
   if (!rows.length) { $("saveNote").textContent = "Add at least one holding first."; return; }
@@ -309,13 +366,13 @@ $("btnSave").onclick = () => {
     id: "s" + Date.now(), ts: Date.now(), date: iso(new Date()), asof: D.asof, capital: P.capital,
     value: hs.reduce((a, h) => a + h.qty * (h.ltp || 0), 0),
     pnl: twin.shot && twin.shot.total_pnl != null ? twin.shot.total_pnl : hs.reduce((a, h) => a + (h.avg > 0 ? ((h.ltp || 0) - h.avg) * h.qty : 0), 0),
-    exp_1w: bw.mean, p25_1w: bw.p25, p75_1w: bw.p75, holdings: hs,
+    exp_1w: bw.mean, p25_1w: bw.p25, p75_1w: bw.p75, holdings: hs, source,
   };
   twin.holdings.forEach((h) => { h.check = {}; });
   snaps.push(snap); persist(); queue("add_snapshot", { p_snap: snap });
   $("saveNote").textContent = `Saved at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. The next snapshot is scored against this one.`;
   renderAll();
-};
+}
 function renderMine() {
   const h = '<thead><tr><th>Snapshot</th><th class="n">Value</th><th class="n">P&amp;L</th><th class="n">Expected</th><th class="n">Actual</th><th class="hide-m">Result</th></tr></thead><tbody>';
   if (!snaps.length) { $("mineTbl").innerHTML = h + '<tr><td colspan="6" class="sub">No snapshots yet. Save one from the holdings panel to start the record.</td></tr></tbody>'; return; }
@@ -684,7 +741,7 @@ async function boot() {
     try { const r = await fetch("demo-bundle.json"); if (r.ok) { const b = await r.json(); cache = Object.assign(cache, b); setData(b.payload); } } catch (e) {}
   }
   renderSlots();
-  show((location.hash || "").slice(1) || LS.get("view", "today"));
+  show(session ? "portfolio" : ((location.hash || "").slice(1) || LS.get("view", "today")));
   if (D) { renderStatic(); renderAll(); }
   if (CFG.url && !KEY) showPair();
   else sync();

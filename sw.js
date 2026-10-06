@@ -1,5 +1,5 @@
 // Sentinel service worker: offline app shell, cached text-reader files, push.
-const VERSION = "sentinel-1.0.0";
+const VERSION = "sentinel-1.1.0";
 const SHELL = ["./", "index.html", "styles.css", "app.js", "plan.js", "ocr.js", "config.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/badge-96.png"];
 const RUNTIME = "sentinel-runtime";
 

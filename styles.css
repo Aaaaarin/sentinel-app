@@ -232,3 +232,5 @@ html, body { height: 100%; }
   .edit input { min-width: 64px; padding: 8px 7px; font-size: 14px; }
 }
 .edit td:first-child input { min-width: 118px; }
+.sess { background: var(--wash); border: 1px solid var(--wash-2); border-radius: 12px; padding: 12px; display: grid; gap: 10px; margin-top: 8px; }
+.sess b { font-size: 14.5px; }

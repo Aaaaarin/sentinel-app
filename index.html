@@ -64,17 +64,27 @@
             </div>
             <button class="primary bigbtn" id="btnShot" type="button">Add screenshots from gallery</button>
             <input id="shotFile" type="file" accept="image/*" multiple hidden>
+            <div id="sessBox" class="sess" hidden>
+              <div><b id="sessTitle"></b><div class="sub" id="sessSub"></div></div>
+              <div class="btnrow">
+                <button id="btnMore" type="button">Add more photos</button>
+                <button class="primary" id="btnDoneShots" type="button">Done: this is my portfolio</button>
+                <button id="btnCancelShots" type="button">Cancel</button>
+              </div>
+            </div>
             <div id="shotBox" hidden>
               <div class="progress"><i id="shotBar"></i></div>
               <div class="sub" id="shotStatus"></div>
             </div>
-            <div class="sub" style="margin:8px 0 10px">Holdings screen from Kite, Groww, Upstox or similar. Text is read on this phone; nothing is uploaded. Cells in yellow need a check.</div>
+            <div class="sub" style="margin:8px 0 10px">Screenshot every part of your holdings list (Kite, Groww, Upstox or similar), add them all, then tap Done. Text is read on this phone. Cells in yellow need a check.</div>
             <div class="scroll"><table class="edit" id="editTbl"></table></div>
             <div class="btnrow" style="margin-top:10px">
               <button id="btnAddRow" type="button">Add row</button>
+              <span id="normalBtns" style="display:contents">
               <button id="btnClear" type="button">Clear all</button>
               <span class="spacer"></span>
               <button id="btnSave" class="primary" type="button">Save snapshot</button>
+              </span>
             </div>
             <div class="sub" id="saveNote" style="margin-top:6px"></div>
             <details id="rawBox" hidden style="margin-top:8px"><summary>Text read from the screenshots</summary><pre class="sub" id="rawText" style="white-space:pre-wrap"></pre></details>

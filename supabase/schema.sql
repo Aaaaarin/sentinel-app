@@ -159,3 +159,12 @@ revoke all on function public._cron_notify(text) from public, anon, authenticate
 
 -- Monday 09:05 IST (03:35 UTC): reminder if the review's orders are not marked placed
 select cron.schedule('sentinel-monday-reminder', '35 3 * * 1', $cron$select public._cron_notify('monday')$cron$);
+
+-- after setup has run once: lock the bootstrap, and nothing is callable by signed-in users (there are none)
+revoke execute on function public.bootstrap_secrets(jsonb) from anon, authenticated, public;
+revoke execute on function public.get_bundle(text, bigint) from authenticated;
+revoke execute on function public.ingest_payload(text, jsonb) from authenticated;
+revoke execute on function public.save_state(text, jsonb) from authenticated;
+revoke execute on function public.add_snapshot(text, jsonb) from authenticated;
+revoke execute on function public.save_push_sub(text, jsonb) from authenticated;
+revoke execute on function public.remove_push_sub(text, text) from authenticated;
