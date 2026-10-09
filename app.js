@@ -6,8 +6,11 @@
 import { makePlan } from "./plan.js";
 import { readScreenshots, buildIndex } from "./ocr.js";
 
-const CFG = window.SENTINEL || {};
-const VERSION = "1.1.0";
+// ?demo opens a read-only showcase on sample data: no server, and its own storage,
+// so it never touches a paired phone's state on the same site.
+const DEMO = new URLSearchParams(location.search).has("demo");
+const CFG = DEMO ? {} : (window.SENTINEL || {});
+const VERSION = "1.1.1";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -30,10 +33,11 @@ const ago = (t) => { if (!t) return "never"; const s = (Date.now() - new Date(t)
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, 3200); }
 
 // ---------- local storage ----------
+const LSNS = DEMO ? "sentinel-demo-" : "sentinel-";
 const LS = {
-  get(k, d) { try { const v = localStorage.getItem("sentinel-" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem("sentinel-" + k, JSON.stringify(v)); } catch (e) {} },
-  del(k) { try { localStorage.removeItem("sentinel-" + k); } catch (e) {} },
+  get(k, d) { try { const v = localStorage.getItem(LSNS + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(LSNS + k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(LSNS + k); } catch (e) {} },
 };
 
 // ---------- data ----------
@@ -58,6 +62,7 @@ let KEY = LS.get("key", null);
 let cache = LS.get("cache", {});
 const DEFAULT_TWIN = { capital: null, slots: 20, holdings: [], shot: null, orders_done_for: null, prefs: { remind: true, drift: true } };
 let twin = Object.assign({}, DEFAULT_TWIN, cache.state || {});
+if (DEMO && !(twin.capital > 0)) twin.capital = 500000;
 let snaps = cache.snapshots || [];
 let outbox = LS.get("outbox", []);
 let lastSync = LS.get("lastSync", null), syncing = false, online = navigator.onLine;
@@ -720,6 +725,7 @@ async function renderSettings() {
 }
 function renderSyncChip() {
   const c = $("syncChip"); if (!c) return;
+  if (DEMO) { c.innerHTML = `<span class="syncdot" style="background:var(--warn)"></span>Demo: sample data`; return; }
   const col = syncing ? "--warn" : outbox.length ? "--warn" : online && lastSync ? "--good" : "--muted";
   c.innerHTML = `<span class="syncdot" style="background:var(${col})"></span>${syncing ? "Syncing" : outbox.length ? outbox.length + " to upload" : online ? "Synced " + ago(lastSync) : "Offline"}`;
 }
