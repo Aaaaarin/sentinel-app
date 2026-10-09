@@ -6,11 +6,14 @@
 import { makePlan } from "./plan.js";
 import { readScreenshots, buildIndex } from "./ocr.js";
 
-// ?demo opens a read-only showcase on sample data: no server, and its own storage,
-// so it never touches a paired phone's state on the same site.
-const DEMO = new URLSearchParams(location.search).has("demo");
+// A browser that never paired gets a demo frozen on a published snapshot: no server,
+// and its own storage, so it never touches a paired phone's state on the same site.
+// ?demo forces it, ?pair forces the pairing screen, a #pair= link pairs as before.
+const Q = new URLSearchParams(location.search);
+const PAIRED = (() => { try { return !!localStorage.getItem("sentinel-key"); } catch (e) { return false; } })();
+const DEMO = Q.has("demo") || (!PAIRED && !Q.has("pair") && !/^#pair=/.test(location.hash));
 const CFG = DEMO ? {} : (window.SENTINEL || {});
-const VERSION = "1.1.1";
+const VERSION = "1.1.2";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -50,6 +53,8 @@ function setData(p) {
   HOLD = []; (F.hold_hist || []).forEach((n, L) => { for (let i = 0; i < n; i++) HOLD.push(L); });
   OCRINDEX = null;
 }
+// the demo lives on the snapshot's day, so it reads the same whenever it is opened
+const today = () => DEMO && D ? pd(D.run_date) : new Date();
 const rankOf = (s) => RANKS[s] ? RANKS[s][0] : null;
 const lastPx = (s) => RANKS[s] ? RANKS[s][1] : (BOOK[s] ? BOOK[s].close : null);
 const cone = (h) => { const c = F.stock_cone; return c[Math.max(0, Math.min(Math.round(h), c.length - 1))]; };
@@ -162,7 +167,7 @@ const VIEWS = [
   ["record", "Track record", "How the rule has done: replay since 2021, live since 5 Oct 26."],
   ["rules", "Rules", "The whole strategy on one page, and the latest ranking."],
   ["settings", "Settings", "Notifications, sync and this phone."],
-];
+].filter((v) => !(DEMO && v[0] === "settings"));
 $("navlist").innerHTML = VIEWS.map((v, i) => `<button data-view="${v[0]}"><span class="k">${i + 1}</span>${v[1]}<span class="badge" id="badge-${v[0]}" hidden></span></button>`).join("");
 let current = null;
 function show(name) {
@@ -185,7 +190,7 @@ function badge(view, text, hot) { const b = $("badge-" + view); if (!b) return; 
 
 // ---------- today ----------
 function renderToday(P) {
-  let h = `<div class="eyebrow">Today, ${fd(iso(new Date()), true)}</div>`;
+  let h = `<div class="eyebrow">Today, ${fd(iso(today()), true)}</div>`;
   if (D.state === "rebalance") {
     h += `<div class="verdict go">Review day</div><div>The weekly signal from the close of ${fd(D.last_rebalance.signal_date, true)} is in. Place your orders ${D.exec_date !== D.run_date ? "on " + fd(D.exec_date, true) + ", the next session." : "today."}</div><div class="sub" style="margin-top:6px">The replay filled at the session VWAP: skip the first 15 minutes and place orders mid-session.</div>`;
   } else if (D.state === "stale") {
@@ -222,7 +227,7 @@ function renderOrders(P) {
     h += `<div class="ogrp buy"><h3><span class="dot" style="background:var(--good)"></span>Buy ${P.buys.length}</h3>` +
       P.buys.map((b) => orow(b.symbol, `rank ${b.rank}. Expected sell around ${sellBy}, ${pct(c.mean)} (middle half ${pct(c.p25, 0)} to ${pct(c.p75, 0)})`, b.qty + " @ " + px(b.price), rs(b.value))).join("") + "</div>";
   }
-  if (P.topups.length) h += `<div class="ogrp top"><h3><span class="dot" style="background:var(--muted)"></span>Add to ${P.topups.length}</h3>` +
+  if (P.topups.length) h += `<div class="ogrp add"><h3><span class="dot" style="background:var(--muted)"></span>Add to ${P.topups.length}</h3>` +
     P.topups.map((t) => orow(t.symbol, `rank ${t.rank}, tops up toward its equal share`, "+" + t.qty + " @ " + px(t.price), rs(t.value))).join("") + "</div>";
   if (!P.count) h += `<div class="none">Nothing to do. Every holding is inside rank ${R.sell_rank} and your money is invested.</div>`;
   h += `<div class="sub">${P.example ? "" : `Keeping ${P.keep.length} of your holdings. `}After these orders: ${rs(P.invested)} in ${P.positions.length} stocks, ${rs(P.cash)} left over (less than one more share).${P.skipped.length ? " Skipped because one share costs more than a slot: " + P.skipped.map(esc).join(", ") + "." : ""}</div>`;
@@ -595,7 +600,7 @@ function renderStatic() {
   $("stateChip").innerHTML = D.state === "rebalance" ? `<span class="dot" style="background:var(--accent)"></span>Review: orders ${fd(D.exec_date, true)}`
     : D.state === "stale" ? '<span class="dot" style="background:var(--bad)"></span>Data is stale'
     : `<span class="dot" style="background:var(--good)"></span>Hold. Next review ${fd(D.next_signal, true)}`;
-  const staleNow = (Date.now() - pd(D.asof).getTime()) / 86400000 > 4.5;
+  const staleNow = !DEMO && (Date.now() - pd(D.asof).getTime()) / 86400000 > 4.5;
   $("banner").hidden = !(D.state === "stale" || staleNow);
   if (!$("banner").hidden) { $("banner").className = "banner"; $("banner").textContent = `Newest NSE data is from ${fd(D.asof, true)}. Turn on the laptop so the morning update can run.`; }
   renderPulse();
@@ -725,7 +730,7 @@ async function renderSettings() {
 }
 function renderSyncChip() {
   const c = $("syncChip"); if (!c) return;
-  if (DEMO) { c.innerHTML = `<span class="syncdot" style="background:var(--warn)"></span>Demo: sample data`; return; }
+  if (DEMO) { c.innerHTML = `<span class="syncdot" style="background:var(--accent)"></span>Demo snapshot`; return; }
   const col = syncing ? "--warn" : outbox.length ? "--warn" : online && lastSync ? "--good" : "--muted";
   c.innerHTML = `<span class="syncdot" style="background:var(${col})"></span>${syncing ? "Syncing" : outbox.length ? outbox.length + " to upload" : online ? "Synced " + ago(lastSync) : "Offline"}`;
 }
@@ -745,6 +750,11 @@ async function boot() {
   if (cache.payload) setData(cache.payload);
   else if (!CFG.url) {
     try { const r = await fetch("demo-bundle.json"); if (r.ok) { const b = await r.json(); cache = Object.assign(cache, b); setData(b.payload); } } catch (e) {}
+  }
+  // demo portfolio: the model book at equal weight, so the order engine has real work to show
+  if (DEMO && D && !twin.holdings.length) {
+    const per = twin.capital / D.book.length;
+    twin.holdings = D.book.map((b) => ({ symbol: b.symbol, qty: Math.floor(per / b.close), avg: b.entry_px, ltp: null, check: {} }));
   }
   renderSlots();
   show(session ? "portfolio" : ((location.hash || "").slice(1) || LS.get("view", "today")));
