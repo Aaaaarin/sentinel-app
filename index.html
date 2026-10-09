@@ -17,7 +17,7 @@
 <body>
 <div class="app">
   <nav class="nav" aria-label="Sections">
-    <div class="brand"><b>Sentinel</b><span>Momentum book, weekly</span></div>
+    <div class="brand"><b>Sentinel</b><span>NSE momentum, weekly</span></div>
     <div class="navlist" id="navlist"></div>
     <div class="navfoot">
       <div class="chip" id="fresh"></div>
@@ -27,7 +27,7 @@
 
   <main class="main">
     <div class="top">
-      <div><h1 id="vTitle">Today</h1><div class="sub" id="vSub"></div></div>
+      <h1 id="vTitle">Today</h1>
       <span class="spacer"></span>
       <div id="banner" hidden></div>
       <div class="chip" id="stateChip"></div>
@@ -53,22 +53,22 @@
 
       <section class="view" id="v-portfolio" hidden>
         <div class="panel">
-          <div class="ph"><h2>Your holdings</h2><span class="sub">Your orders are computed from this table.</span></div>
+          <div class="ph"><h2>Your holdings</h2></div>
           <div class="pb">
             <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:end;margin-bottom:12px">
               <div>
-                <label class="lbl" for="capital">Total money in this strategy (stocks plus cash waiting to go in)</label>
+                <label class="lbl" for="capital">Capital (stocks + cash)</label>
                 <div class="cap"><span>Rs</span><input id="capital" type="number" inputmode="numeric" min="0" step="1000" placeholder="500000"></div>
               </div>
               <div><span class="lbl">Stocks to hold</span><div class="seg" id="slots"></div></div>
             </div>
-            <button class="primary bigbtn" id="btnShot" type="button">Add screenshots from gallery</button>
+            <button class="primary bigbtn" id="btnShot" type="button">Add screenshots</button>
             <input id="shotFile" type="file" accept="image/*" multiple hidden>
             <div id="sessBox" class="sess" hidden>
               <div><b id="sessTitle"></b><div class="sub" id="sessSub"></div></div>
               <div class="btnrow">
                 <button id="btnMore" type="button">Add more photos</button>
-                <button class="primary" id="btnDoneShots" type="button">Done: this is my portfolio</button>
+                <button class="primary" id="btnDoneShots" type="button">Done</button>
                 <button id="btnCancelShots" type="button">Cancel</button>
               </div>
             </div>
@@ -76,7 +76,7 @@
               <div class="progress"><i id="shotBar"></i></div>
               <div class="sub" id="shotStatus"></div>
             </div>
-            <div class="sub" style="margin:8px 0 10px">Screenshot every part of your holdings list (Kite, Groww, Upstox or similar), add them all, then tap Done. Text is read on this phone. Cells in yellow need a check.</div>
+            <div style="height:10px"></div>
             <div class="scroll"><table class="edit" id="editTbl"></table></div>
             <div class="btnrow" style="margin-top:10px">
               <button id="btnAddRow" type="button">Add row</button>
@@ -87,13 +87,12 @@
               </span>
             </div>
             <div class="sub" id="saveNote" style="margin-top:6px"></div>
-            <details id="rawBox" hidden style="margin-top:8px"><summary>Text read from the screenshots</summary><pre class="sub" id="rawText" style="white-space:pre-wrap"></pre></details>
+            <details id="rawBox" hidden style="margin-top:8px"><summary>Raw text</summary><pre class="sub" id="rawText" style="white-space:pre-wrap"></pre></details>
           </div>
         </div>
         <div class="panel">
-          <div class="ph"><h2>Your P&amp;L: expected vs actual</h2></div>
+          <div class="ph"><h2>Expected vs actual</h2></div>
           <div class="pb">
-            <div class="sub" style="margin-bottom:8px">Each snapshot is scored against what the model expected for the stocks you held through both snapshots.</div>
             <div class="scroll"><table class="tbl" id="mineTbl"></table></div>
           </div>
         </div>
@@ -118,33 +117,30 @@
 
       <section class="view" id="v-analysis" hidden>
         <div class="panel">
-          <div class="ph"><h2>What we are doing</h2></div>
+          <div class="ph"><h2>The book</h2></div>
           <div class="pb">
             <div class="mini" id="aDoingMini"></div>
-            <div class="prose" id="aDoing"></div>
             <h3 class="eyebrow" style="margin:10px 0 4px">Book minus universe, rolling 13 weeks</h3>
             <div class="chart fixedh" id="rollChart"></div>
           </div>
         </div>
         <div class="panel">
-          <div class="ph"><h2>How the market is running</h2></div>
+          <div class="ph"><h2>Market</h2></div>
           <div class="pb">
             <div class="mini" id="aMktMini"></div>
-            <div class="prose" id="aMkt"></div>
-            <h3 class="eyebrow" style="margin:10px 0 4px">Nifty 50 and its trend lines, 1 year</h3>
+            <h3 class="eyebrow" style="margin:10px 0 4px">Nifty 50, 1 year</h3>
             <div class="legend" id="niftyLegend"></div>
             <div class="chart fixedh" id="niftyChart"></div>
-            <h3 class="eyebrow" style="margin:14px 0 4px">Breadth: share of liquid stocks above their averages</h3>
+            <h3 class="eyebrow" style="margin:14px 0 4px">Breadth</h3>
             <div class="legend" id="breadthLegend"></div>
             <div class="chart fixedh" id="breadthChart"></div>
           </div>
         </div>
         <div class="panel">
-          <div class="ph"><h2>How we are doing against our predictions</h2></div>
+          <div class="ph"><h2>Forecast accuracy</h2></div>
           <div class="pb">
             <div class="mini" id="aPredMini"></div>
-            <div class="prose" id="aPred"></div>
-            <h3 class="eyebrow" style="margin:10px 0 4px">Book, last 52 weeks: forecast vs actual</h3>
+            <h3 class="eyebrow" style="margin:10px 0 4px">Forecast vs actual, 52 weeks</h3>
             <div class="legend" id="pathLegend"></div>
             <div class="chart fixedh" id="pathChart"></div>
             <h3 class="eyebrow" style="margin:14px 0 4px">Year by year (walk-forward)</h3>
@@ -157,7 +153,7 @@
         <div class="kpis" id="calKpis"></div>
         <div class="two">
           <div class="panel"><div class="ph"><h2>Model book, week by week</h2></div><div class="pb"><div class="scroll"><table class="tbl" id="bookPredTbl"></table></div></div></div>
-          <div class="panel"><div class="ph"><h2>Every stock forecast</h2><span class="sub">Tap a row for its chart.</span></div><div class="pb"><div class="scroll"><table class="tbl" id="predTbl"></table></div></div></div>
+          <div class="panel"><div class="ph"><h2>Every stock forecast</h2></div><div class="pb"><div class="scroll"><table class="tbl" id="predTbl"></table></div></div></div>
         </div>
       </section>
 
@@ -176,13 +172,13 @@
         </div>
         <div class="two">
           <div class="panel"><div class="ph"><h2>Weekly reviews</h2></div><div class="pb"><div class="scroll"><table class="tbl" id="rebTbl"></table></div></div></div>
-          <div class="panel"><div class="ph"><h2>Closed trades</h2><span class="sub">most recent 40</span></div><div class="pb"><div class="scroll"><table class="tbl" id="closedTbl"></table></div></div></div>
+          <div class="panel"><div class="ph"><h2>Closed trades</h2></div><div class="pb"><div class="scroll"><table class="tbl" id="closedTbl"></table></div></div></div>
         </div>
       </section>
 
       <section class="view" id="v-rules" hidden>
         <div class="panel"><div class="ph"><h2>The rule</h2></div><div class="pb prose" id="rules"></div></div>
-        <div class="panel"><div class="ph"><h2>Latest ranking</h2><span class="sub">top 40, context only</span></div><div class="pb"><div class="scroll"><table class="tbl" id="topTbl"></table></div></div></div>
+        <div class="panel"><div class="ph"><h2>Latest ranking</h2><span class="sub">top 40</span></div><div class="pb"><div class="scroll"><table class="tbl" id="topTbl"></table></div></div></div>
       </section>
 
       <section class="view" id="v-settings" hidden>
@@ -194,9 +190,9 @@
               <button class="primary" id="btnNotif" type="button">Turn on notifications</button>
               <button id="btnTest" type="button">Send a test</button>
             </div>
-            <label class="toggle"><span>Weekly review is in (Friday evening or Monday morning)</span><input type="checkbox" checked disabled></label>
-            <label class="toggle"><span>Monday 9:05 reminder if the orders are not marked placed</span><input type="checkbox" id="prefRemind"></label>
-            <label class="toggle"><span>A holding slips past rank 35 during the week</span><input type="checkbox" id="prefDrift"></label>
+            <label class="toggle"><span>Weekly review is in</span><input type="checkbox" checked disabled></label>
+            <label class="toggle"><span>Monday 9:05 reminder</span><input type="checkbox" id="prefRemind"></label>
+            <label class="toggle"><span>A holding slips past rank 35</span><input type="checkbox" id="prefDrift"></label>
             <h3 class="eyebrow" style="margin:14px 0 6px">Recent</h3>
             <div class="scroll"><table class="tbl" id="notifTbl"></table></div>
           </div>
@@ -206,7 +202,6 @@
           <div class="pb">
             <div class="btnrow" style="margin-bottom:12px"><button class="primary" id="btnInstall" type="button" hidden>Install app</button><button id="btnSync" type="button">Sync now</button></div>
             <dl class="kv" id="devKv"></dl>
-            <div class="sub" style="margin-top:12px">Market data comes from your laptop's morning update (and a Friday-evening run). Your holdings, money and snapshots are saved on this phone and backed up to your Sentinel database.</div>
             <div class="btnrow" style="margin-top:14px"><button id="btnUnpair" type="button">Unpair this phone</button></div>
           </div>
         </div>
@@ -219,7 +214,7 @@
   <div class="card">
     <div class="eyebrow">Sentinel</div>
     <h2>Pair this phone</h2>
-    <div class="sub">Scan the pairing QR code on your laptop (morning/.pairing/pair-phone.png) with the phone camera. It opens this app already paired. Or paste the pairing code from that folder.</div>
+    <div class="sub">Scan the QR code in morning/.pairing, or paste the code.</div>
     <label class="lbl" for="pairCode">Pairing code</label>
     <input id="pairCode" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
     <button class="primary bigbtn" id="btnPair" type="button">Pair</button>

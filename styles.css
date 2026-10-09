@@ -203,6 +203,10 @@ input[type=number], input[type=text], select { background: var(--surface); borde
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .verdict { font-size: 36px; }
   .hide-m { display: none; }
+  /* stock picker becomes one swipeable row so the charts stay on screen */
+  .slist { display: flex; gap: 6px; overflow-x: auto; }
+  .slist .g { display: none; }
+  .slist button { width: auto; flex: none; background: var(--sunk); }
 }
 
 /* ---------- phone app additions ---------- */

@@ -32,10 +32,10 @@ export function makePlan(D, state) {
 
   let keep = rows.filter((r) => r.rank && r.rank <= R.sell_rank).sort((a, b) => a.rank - b.rank);
   const sells = rows.filter((r) => !(r.rank && r.rank <= R.sell_rank)).map((r) => ({
-    ...r, why: r.rank ? `rank ${r.rank}, past the ${R.sell_rank} cutoff` : "not in the ranked universe (illiquid, an ETF, or an unknown symbol)",
+    ...r, why: r.rank ? `#${r.rank}, past ${R.sell_rank}` : "unranked",
   }));
   if (keep.length > N) {
-    keep.slice(N).forEach((r) => sells.push({ ...r, why: `rank ${r.rank}, more stocks than your ${N} slots, so the weakest goes` }));
+    keep.slice(N).forEach((r) => sells.push({ ...r, why: `#${r.rank}, over ${N} slots` }));
     keep = keep.slice(0, N);
   }
   const target = capital / N;

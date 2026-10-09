@@ -13,7 +13,7 @@ const Q = new URLSearchParams(location.search);
 const PAIRED = (() => { try { return !!localStorage.getItem("sentinel-key"); } catch (e) { return false; } })();
 const DEMO = Q.has("demo") || (!PAIRED && !Q.has("pair") && !/^#pair=/.test(location.hash));
 const CFG = DEMO ? {} : (window.SENTINEL || {});
-const VERSION = "1.1.2";
+const VERSION = "1.1.3";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -158,15 +158,8 @@ $("btnPair").onclick = async () => {
 
 // ---------- navigation ----------
 const VIEWS = [
-  ["today", "Today", "What the rule says to do with your money now."],
-  ["portfolio", "Portfolio", "Your real holdings and money. Everything else is computed from here."],
-  ["forecast", "Forecast", "Where the rule expects the market and each stock to go, and when it expects to sell."],
-  ["analysis", "Analysis", "What we are doing, how the market is running, and how our forecasts have held up."],
-  ["ledger", "Ledger", "Every forecast, logged before the outcome and scored after it."],
-  ["book", "Model book", "The 20 stocks the rule itself holds right now."],
-  ["record", "Track record", "How the rule has done: replay since 2021, live since 5 Oct 26."],
-  ["rules", "Rules", "The whole strategy on one page, and the latest ranking."],
-  ["settings", "Settings", "Notifications, sync and this phone."],
+  ["today", "Today"], ["portfolio", "Portfolio"], ["forecast", "Forecast"], ["analysis", "Analysis"], ["ledger", "Ledger"],
+  ["book", "Model book"], ["record", "Track record"], ["rules", "Rules"], ["settings", "Settings"],
 ].filter((v) => !(DEMO && v[0] === "settings"));
 $("navlist").innerHTML = VIEWS.map((v, i) => `<button data-view="${v[0]}"><span class="k">${i + 1}</span>${v[1]}<span class="badge" id="badge-${v[0]}" hidden></span></button>`).join("");
 let current = null;
@@ -176,7 +169,7 @@ function show(name) {
   VIEWS.forEach((v) => {
     $("v-" + v[0]).hidden = v[0] !== name;
     const b = document.querySelector(`[data-view="${v[0]}"]`);
-    if (v[0] === name) { b.setAttribute("aria-current", "page"); $("vTitle").textContent = v[1]; $("vSub").textContent = v[2]; b.scrollIntoView({ block: "nearest", inline: "nearest" }); }
+    if (v[0] === name) { b.setAttribute("aria-current", "page"); $("vTitle").textContent = v[1]; b.scrollIntoView({ block: "nearest", inline: "nearest" }); }
     else b.removeAttribute("aria-current");
   });
   LS.set("view", name);
@@ -192,52 +185,52 @@ function badge(view, text, hot) { const b = $("badge-" + view); if (!b) return; 
 function renderToday(P) {
   let h = `<div class="eyebrow">Today, ${fd(iso(today()), true)}</div>`;
   if (D.state === "rebalance") {
-    h += `<div class="verdict go">Review day</div><div>The weekly signal from the close of ${fd(D.last_rebalance.signal_date, true)} is in. Place your orders ${D.exec_date !== D.run_date ? "on " + fd(D.exec_date, true) + ", the next session." : "today."}</div><div class="sub" style="margin-top:6px">The replay filled at the session VWAP: skip the first 15 minutes and place orders mid-session.</div>`;
+    h += `<div class="verdict go">Review day</div><div>Place orders ${D.exec_date !== D.run_date ? fd(D.exec_date, true) : "today"}, mid-session near VWAP.</div>`;
   } else if (D.state === "stale") {
-    h += `<div class="verdict stop">Wait</div><div>The data is out of date, so nothing here is current.</div>`;
+    h += `<div class="verdict stop">Wait</div><div>Data out of date.</div>`;
   } else {
-    h += `<div class="verdict">Hold</div><div>The model book trades once a week. New money can go in any day using your orders.</div><div class="when"><div><b>${fd(D.next_signal, true)}</b><span>next review, at the close</span></div><div><b>${fd(D.next_fill, true)}</b><span>orders go in</span></div></div>`;
+    h += `<div class="verdict">Hold</div><div class="when"><div><b>${fd(D.next_signal, true)}</b><span>next review</span></div><div><b>${fd(D.next_fill, true)}</b><span>orders go in</span></div></div>`;
   }
   const bw = F.book_week || {}, v = P.invested;
-  h += `<div class="expect"><div class="sub">Expected over the next week on ${P.example ? "an example " : "your "}${rs(v)} invested</div><div><b class="${cls(bw.mean)}">${rsS(v * bw.mean / 100)}</b> <span class="sub">(${pct(bw.mean, 2)})</span></div><div class="sub">Middle half of weeks: ${rsS(v * bw.p25 / 100)} to ${rsS(v * bw.p75 / 100)}. One week in ten is worse than ${rsS(v * bw.p10 / 100)}.</div></div>`;
+  h += `<div class="expect"><div class="sub">Next week, expected</div><div><b class="${cls(bw.mean)}">${rsS(v * bw.mean / 100)}</b> <span class="sub">(${pct(bw.mean, 2)})</span></div><div class="sub">Middle half ${rsS(v * bw.p25 / 100)} to ${rsS(v * bw.p75 / 100)} · 1 week in 10 below ${rsS(v * bw.p10 / 100)}</div></div>`;
   $("today").innerHTML = h;
 }
 function renderPulse() {
   const m = A.market, w = A.preds.walk, u = A.us;
   $("pulse").innerHTML = `<div style="font-weight:600">${esc(m.regime)}</div><div class="pulse">` +
     `<div><b class="${cls(m.nifty.m1)}">${pct(m.nifty.m1)}</b><span>Nifty 50, 1 month</span></div>` +
-    `<div><b class="${cls(m.universe.m1)}">${pct(m.universe.m1)}</b><span>average liquid stock, 1 month</span></div>` +
-    `<div><b>${m.breadth.a200}%</b><span>stocks above 200-day avg</span></div>` +
+    `<div><b class="${cls(m.universe.m1)}">${pct(m.universe.m1)}</b><span>avg stock, 1 month</span></div>` +
+    `<div><b>${m.breadth.a200}%</b><span>above 200-day avg</span></div>` +
     `<div><b class="${cls(u.w13.excess)}">${pct(u.w13.excess)}</b><span>book vs universe, 13 weeks</span></div>` +
-    `<div><b>${w.in50 == null ? "-" : w.in50 + "%"}</b><span>forecasts in middle half (target 50%)</span></div>` +
+    `<div><b>${w.in50 == null ? "-" : w.in50 + "%"}</b><span>in middle half (target 50%)</span></div>` +
     `<div><b>${w.in80 == null ? "-" : w.in80 + "%"}</b><span>in 8-in-10 range (target 80%)</span></div></div>`;
 }
 const orow = (sym, why, q, amt) => `<div class="orow"><div><span class="sym">${esc(sym)}</span>${why ? `<span class="why">${why}</span>` : ""}</div><div class="q">${q}</div><div class="amt">${amt}</div></div>`;
 function renderOrders(P) {
   let h = "";
   $("ordersTitle").textContent = P.example ? "Orders for a fresh Rs 5,00,000" : "Your orders";
-  $("ordersSub").textContent = P.example ? "Example only. Add your money and holdings in Portfolio." : `${P.N} stocks, about ${rs(P.target)} each.`;
-  if (P.warn) h += `<div class="note">Your holdings are worth ${rs(P.warn.held)}, more than the ${rs(P.warn.entered)} entered, so the orders use ${rs(P.warn.held)}.</div>`;
+  $("ordersSub").textContent = P.example ? "Example" : `${P.N} stocks, about ${rs(P.target)} each`;
+  if (P.warn) h += `<div class="note">Holdings are worth ${rs(P.warn.held)}, more than the ${rs(P.warn.entered)} entered. Using ${rs(P.warn.held)}.</div>`;
   if (P.sells.length) h += `<div class="ogrp sell"><h3><span class="dot" style="background:var(--bad)"></span>Sell ${P.sells.length}</h3>` +
     P.sells.map((r) => { const pl = r.avg > 0 && r.known ? (r.price / r.avg - 1) * 100 : null; return orow(r.symbol, esc(r.why), "all " + r.qty, rs(r.value) + (pl != null ? ` <span class="${cls(pl)}">${pct(pl)}</span>` : "")); }).join("") + "</div>";
   if (P.trims.length) h += `<div class="ogrp sell"><h3><span class="dot" style="background:var(--bad)"></span>Trim ${P.trims.length}</h3>` +
-    P.trims.map((t) => orow(t.symbol, `rank ${t.rank}, still a hold. Worth ${rs(t.was)}, over twice its equal share, so sell part`, t.qty + " of it", rs(t.value))).join("") + "</div>";
+    P.trims.map((t) => orow(t.symbol, `#${t.rank}, over 2x its share`, t.qty + " of it", rs(t.value))).join("") + "</div>";
   if (P.buys.length) {
     const rem = remHold(0), c = cone(rem), sellBy = fd(iso(addSessions(pd(D.asof), rem)), true);
     h += `<div class="ogrp buy"><h3><span class="dot" style="background:var(--good)"></span>Buy ${P.buys.length}</h3>` +
-      P.buys.map((b) => orow(b.symbol, `rank ${b.rank}. Expected sell around ${sellBy}, ${pct(c.mean)} (middle half ${pct(c.p25, 0)} to ${pct(c.p75, 0)})`, b.qty + " @ " + px(b.price), rs(b.value))).join("") + "</div>";
+      P.buys.map((b) => orow(b.symbol, `#${b.rank} · sell ~${sellBy}, ${pct(c.mean)}`, b.qty + " @ " + px(b.price), rs(b.value))).join("") + "</div>";
   }
   if (P.topups.length) h += `<div class="ogrp add"><h3><span class="dot" style="background:var(--muted)"></span>Add to ${P.topups.length}</h3>` +
-    P.topups.map((t) => orow(t.symbol, `rank ${t.rank}, tops up toward its equal share`, "+" + t.qty + " @ " + px(t.price), rs(t.value))).join("") + "</div>";
-  if (!P.count) h += `<div class="none">Nothing to do. Every holding is inside rank ${R.sell_rank} and your money is invested.</div>`;
-  h += `<div class="sub">${P.example ? "" : `Keeping ${P.keep.length} of your holdings. `}After these orders: ${rs(P.invested)} in ${P.positions.length} stocks, ${rs(P.cash)} left over (less than one more share).${P.skipped.length ? " Skipped because one share costs more than a slot: " + P.skipped.map(esc).join(", ") + "." : ""}</div>`;
+    P.topups.map((t) => orow(t.symbol, `#${t.rank}`, "+" + t.qty + " @ " + px(t.price), rs(t.value))).join("") + "</div>";
+  if (!P.count) h += `<div class="none">Nothing to do.</div>`;
+  h += `<div class="sub">After: ${rs(P.invested)} in ${P.positions.length} stocks · ${rs(P.cash)} cash${P.skipped.length ? " · skipped (one share > a slot): " + P.skipped.map(esc).join(", ") : ""}</div>`;
   $("orders").innerHTML = h;
   const sig = D.last_rebalance.signal_date, box = $("doneBox");
   if (!P.example && D.state === "rebalance" && P.count) {
     box.hidden = false;
     box.innerHTML = twin.orders_done_for === sig
-      ? `<div class="note">Marked placed. Add a fresh screenshot in Portfolio so the app tracks what you now hold.</div>`
-      : `<button class="primary" id="btnDone" type="button">I placed these orders</button> <span class="sub">Stops the Monday reminder.</span>`;
+      ? `<div class="note">Marked placed.</div>`
+      : `<button class="primary" id="btnDone" type="button">I placed these orders</button>`;
     const bd = $("btnDone"); if (bd) bd.onclick = () => { twin.orders_done_for = sig; persist(); renderAll(); toast("Marked placed"); };
   } else box.hidden = true;
   badge("today", P.example ? "" : (P.count || ""), D.state === "rebalance" && P.count > 0);
@@ -267,8 +260,8 @@ function renderSession() {
   $("sessBox").hidden = !on; $("btnShot").hidden = on; $("normalBtns").style.display = on ? "none" : "contents";
   if (!on) return;
   const n = session.rows.length, doubt = session.rows.filter((r) => Object.values(r.check || {}).some(Boolean)).length;
-  $("sessTitle").textContent = `New portfolio: ${session.photos} photo${session.photos === 1 ? "" : "s"}, ${n} stock${n === 1 ? "" : "s"} so far`;
-  $("sessSub").textContent = (doubt ? `${doubt} with a yellow cell to check. ` : "") + "Add the rest of your holdings list, then tap Done. Done replaces your current holdings with this list and saves a snapshot.";
+  $("sessTitle").textContent = `${session.photos} photo${session.photos === 1 ? "" : "s"}, ${n} stock${n === 1 ? "" : "s"}`;
+  $("sessSub").textContent = doubt ? `${doubt} to check (yellow)` : "";
 }
 
 function renderEditor() {
@@ -286,9 +279,9 @@ function renderEditor() {
       `<td class="n">${inp("qty", "number", r.qty, 'inputmode="numeric" aria-label="Quantity"')}</td>` +
       `<td class="n">${inp("avg", "number", r.avg, 'step="0.01" inputmode="decimal" aria-label="Average price"')}</td>` +
       `<td class="n">${inp("ltp", "number", r.ltp, `step="0.01" inputmode="decimal" placeholder="${lastPx(r.symbol) || ""}" aria-label="Last price"`)}</td>` +
-      `<td class="n hide-m mono ${cls(pl)}">${pl == null ? "-" : rsS(pl)}</td><td>${say}</td><td><button data-del="${i}" type="button" aria-label="Remove row">Remove</button></td></tr>`;
+      `<td class="n hide-m mono ${cls(pl)}">${pl == null ? "-" : rsS(pl)}</td><td>${say}</td><td><button data-del="${i}" type="button" aria-label="Remove row">✕</button></td></tr>`;
   });
-  if (!rowsNow.length) h += `<tr><td colspan="7" class="sub">${session ? "Nothing recognised yet. Add another photo or type the stocks in." : "No holdings yet. Add screenshots or type them in."}</td></tr>`;
+  if (!rowsNow.length) h += `<tr><td colspan="7" class="sub">${session ? "Nothing recognised yet." : "No holdings yet."}</td></tr>`;
   $("editTbl").innerHTML = h + "</tbody>";
 }
 $("editTbl").addEventListener("change", (e) => {
@@ -321,7 +314,7 @@ $("btnCancelShots").onclick = () => {
   const b = $("btnCancelShots");
   if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Tap again to discard"; setTimeout(() => { delete b.dataset.armed; b.textContent = "Cancel"; }, 3000); return; }
   delete b.dataset.armed; b.textContent = "Cancel";
-  session = null; saveSession(); $("shotBox").hidden = true; renderAll(); toast("Photos discarded. Your holdings are unchanged.");
+  session = null; saveSession(); $("shotBox").hidden = true; renderAll(); toast("Photos discarded");
 };
 $("btnDoneShots").onclick = () => {
   const rows = session.rows.filter((r) => r.symbol);
@@ -334,7 +327,7 @@ $("btnDoneShots").onclick = () => {
   const photos = session.photos;
   session = null; saveSession(); $("shotBox").hidden = true;
   persist(); saveSnapshot("photos");
-  toast(`Portfolio updated: ${rows.length} stocks from ${photos} photo${photos === 1 ? "" : "s"}. Snapshot saved.`);
+  toast(`Portfolio updated: ${rows.length} stocks`);
   show("today");
 };
 $("shotFile").onchange = async () => {
@@ -343,7 +336,7 @@ $("shotFile").onchange = async () => {
   if (!files.length) return;
   $("shotBox").hidden = false; $("btnShot").disabled = true; $("btnMore").disabled = true;
   const bar = $("shotBar"), st = $("shotStatus");
-  bar.style.width = "3%"; st.textContent = "Starting the text reader (first time downloads about 7 MB, then it works offline)";
+  bar.style.width = "3%"; st.textContent = "Loading text reader (7 MB, first time only)";
   try {
     if (!OCRINDEX) OCRINDEX = buildIndex(D.names || {}, RANKS);
     const r = await readScreenshots(files, { index: OCRINDEX, ranks: RANKS }, (label, p) => { st.textContent = label + (p ? " " + Math.round(p * 100) + "%" : ""); bar.style.width = Math.max(3, Math.round(p * 100)) + "%"; });
@@ -359,8 +352,8 @@ $("shotFile").onchange = async () => {
     $("rawText").textContent = session.lines.join("\n");
     const added = session.rows.length - before;
     st.textContent = r.holdings.length
-      ? `Found ${r.holdings.length} stock${r.holdings.length === 1 ? "" : "s"} in ${files.length === 1 ? "this photo" : "these photos"} (${added} new to the list). Add more photos, or tap Done.`
-      : "No stocks recognised in that photo. Try the holdings list itself, or type them in below.";
+      ? `Found ${r.holdings.length} (${added} new)`
+      : "No stocks found in that photo";
   } catch (e) {
     st.textContent = e.message || "Could not read the screenshot.";
   } finally { $("btnShot").disabled = false; $("btnMore").disabled = false; }
@@ -380,12 +373,12 @@ function saveSnapshot(source) {
   };
   twin.holdings.forEach((h) => { h.check = {}; });
   snaps.push(snap); persist(); queue("add_snapshot", { p_snap: snap });
-  $("saveNote").textContent = `Saved at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. The next snapshot is scored against this one.`;
+  $("saveNote").textContent = `Saved ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   renderAll();
 }
 function renderMine() {
   const h = '<thead><tr><th>Snapshot</th><th class="n">Value</th><th class="n">P&amp;L</th><th class="n">Expected</th><th class="n">Actual</th><th class="hide-m">Result</th></tr></thead><tbody>';
-  if (!snaps.length) { $("mineTbl").innerHTML = h + '<tr><td colspan="6" class="sub">No snapshots yet. Save one from the holdings panel to start the record.</td></tr></tbody>'; return; }
+  if (!snaps.length) { $("mineTbl").innerHTML = h + '<tr><td colspan="6" class="sub">No snapshots yet.</td></tr></tbody>'; return; }
   const out = [];
   snaps.forEach((s, i) => {
     let exp = null, act = null, band = null;
@@ -397,8 +390,8 @@ function renderMine() {
       if (base > 0 && sess > 0) { const f = sess / 5; exp = base * (prev.exp_1w || 0) / 100 * f; act = move; band = [base * prev.p25_1w / 100 * Math.sqrt(f), base * prev.p75_1w / 100 * Math.sqrt(f)]; }
     }
     const res = exp == null ? `<span class="sub">${i ? "same session" : "baseline"}</span>` :
-      (act >= band[0] && act <= band[1] ? '<span class="chip"><span class="dot" style="background:var(--good)"></span>inside middle half</span>'
-        : `<span class="chip"><span class="dot" style="background:var(--warn)"></span>${act > band[1] ? "better" : "worse"} than middle half</span>`);
+      (act >= band[0] && act <= band[1] ? '<span class="chip"><span class="dot" style="background:var(--good)"></span>inside</span>'
+        : `<span class="chip"><span class="dot" style="background:var(--warn)"></span>${act > band[1] ? "better" : "worse"}</span>`);
     out.push(`<tr><td>${fdy(s.date)} <span class="sub">${new Date(s.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></td><td class="n">${rs(s.value)}</td><td class="n ${cls(s.pnl)}">${rsS(s.pnl)}</td><td class="n">${exp == null ? "-" : rsS(exp)}</td><td class="n ${cls(act)}">${act == null ? "-" : rsS(act)}</td><td class="hide-m">${res}</td></tr>`);
   });
   $("mineTbl").innerHTML = h + out.reverse().join("") + "</tbody>";
@@ -544,7 +537,7 @@ chart("stkChart", (host) => {
   });
   const qx = cone(hExit), rk = rankOf(sym);
   $("stkTitle").textContent = sym + " forecast";
-  $("stkNote").innerHTML = `Rank ${rk || "out"}. Forecast from ${fdy(c.anchorDate)} at ${px(c.anchorPx)}: expected sell around <b>${fd(c.exitDate, true)}</b> near ${px(c.anchorPx * (1 + qx.mean / 100))} (${pct(qx.mean)}, middle half ${pct(qx.p25, 0)} to ${pct(qx.p75, 0)}). The rule sells on rank; the date is the typical holding time.${c.pred ? "" : " Enters the ledger when the rule buys it."}`;
+  $("stkNote").innerHTML = `${rk ? "#" + rk : "Unranked"} · sell ~<b>${fd(c.exitDate, true)}</b> near ${px(c.anchorPx * (1 + qx.mean / 100))} (${pct(qx.mean)}, middle half ${pct(qx.p25, 0)} to ${pct(qx.p75, 0)})`;
 });
 function renderSlist(P) {
   const groups = [["Your buys", P.buys.map((b) => b.symbol)], ["Your holdings", P.keep.map((k) => k.symbol)], ["Model book", D.book.map((b) => b.symbol)]];
@@ -602,27 +595,23 @@ function renderStatic() {
     : `<span class="dot" style="background:var(--good)"></span>Hold. Next review ${fd(D.next_signal, true)}`;
   const staleNow = !DEMO && (Date.now() - pd(D.asof).getTime()) / 86400000 > 4.5;
   $("banner").hidden = !(D.state === "stale" || staleNow);
-  if (!$("banner").hidden) { $("banner").className = "banner"; $("banner").textContent = `Newest NSE data is from ${fd(D.asof, true)}. Turn on the laptop so the morning update can run.`; }
+  if (!$("banner").hidden) { $("banner").className = "banner"; $("banner").textContent = `Data is from ${fd(D.asof, true)}. The laptop update has not run.`; }
   renderPulse();
   // analysis
   const m = A.market, u = A.us, w = A.preds.walk;
   const mini = (id, items) => { $(id).innerHTML = items.map((it) => `<div><b class="${it.k || ""}">${it.v}</b><span>${it.l}</span></div>`).join(""); };
-  const prose = (id, arr) => { $(id).innerHTML = arr.map((s) => `<p>${esc(s)}</p>`).join(""); };
-  mini("aDoingMini", [{ v: pct(u.w13.book), l: `book, 13 weeks (universe ${pct(u.w13.universe)})`, k: cls(u.w13.book) }, { v: `${u.w13.beat} of ${u.w13.weeks}`, l: "weeks ahead of the universe" }, { v: pct(u.w52.book), l: `book, 52 weeks (universe ${pct(u.w52.universe)})`, k: cls(u.w52.book) }, { v: `${u.open_up} of ${u.open_n}`, l: "open positions in profit" }]);
-  prose("aDoing", A.text.doing);
-  mini("aMktMini", [{ v: pct(m.nifty.m1), l: "Nifty 50, 1 month", k: cls(m.nifty.m1) }, { v: pct(m.universe.m1), l: "average liquid stock, 1 month", k: cls(m.universe.m1) }, { v: m.breadth.a200 + "%", l: `above 200-day average (${m.breadth.a200_1m}% a month ago)` }, { v: pct(m.nifty.vs_dma200), l: "Nifty vs its 200-day average", k: cls(m.nifty.vs_dma200) }]);
-  prose("aMkt", A.text.market);
-  mini("aPredMini", [{ v: w.in50 == null ? "-" : w.in50 + "%", l: "outcomes in middle half (target 50%)" }, { v: w.in80 == null ? "-" : w.in80 + "%", l: "in 8-in-10 range (target 80%)" }, { v: (w.stock_n || 0).toLocaleString("en-IN"), l: "stock-weeks tested since " + fdy(w.from) }, { v: String(D.tracker.summary.scored_1w || 0), l: "live forecasts scored so far" }]);
-  prose("aPred", A.text.preds);
+  mini("aDoingMini", [{ v: pct(u.w13.book), l: `book, 13 weeks (universe ${pct(u.w13.universe)})`, k: cls(u.w13.book) }, { v: `${u.w13.beat} of ${u.w13.weeks}`, l: "weeks ahead" }, { v: pct(u.w52.book), l: `book, 52 weeks (universe ${pct(u.w52.universe)})`, k: cls(u.w52.book) }, { v: `${u.open_up} of ${u.open_n}`, l: "positions in profit" }]);
+  mini("aMktMini", [{ v: pct(m.nifty.m1), l: "Nifty 50, 1 month", k: cls(m.nifty.m1) }, { v: pct(m.universe.m1), l: "avg stock, 1 month", k: cls(m.universe.m1) }, { v: m.breadth.a200 + "%", l: `above 200-day avg (${m.breadth.a200_1m}% a month ago)` }, { v: pct(m.nifty.vs_dma200), l: "Nifty vs 200-day avg", k: cls(m.nifty.vs_dma200) }]);
+  mini("aPredMini", [{ v: w.in50 == null ? "-" : w.in50 + "%", l: "in middle half (target 50%)" }, { v: w.in80 == null ? "-" : w.in80 + "%", l: "in 8-in-10 range (target 80%)" }, { v: (w.stock_n || 0).toLocaleString("en-IN"), l: "stock-weeks tested since " + fdy(w.from) }, { v: String(D.tracker.summary.scored_1w || 0), l: "live forecasts scored" }]);
   $("yearTbl").innerHTML = '<thead><tr><th>Year</th><th class="n">Middle half</th><th class="n">8 in 10</th><th class="n">Stock exp / act</th><th class="n">Book exp / act</th></tr></thead><tbody>' +
     A.preds.years.map((y) => `<tr><td>${y.year}</td><td class="n">${y.in50}%</td><td class="n">${y.in80}%</td><td class="n">${pct(y.exp, 2)} / <span class="${cls(y.act - y.exp)}">${pct(y.act, 2)}</span></td><td class="n">${pct(y.b_exp, 2)} / <span class="${cls(y.b_act - y.b_exp)}">${pct(y.b_act, 2)}</span></td></tr>`).join("") + "</tbody>";
   legend("mktLegend", [{ c: "--accent", n: "Model book" }, { c: "--s-uni", n: "All liquid stocks" }, { c: "--wash-2", n: "middle half", cls: "band" }, { c: "--wash", n: "8 in 10", cls: "band" }]);
   const b20 = F.market_cone.book[F.market_cone.book.length - 1], u20 = F.market_cone.universe[F.market_cone.universe.length - 1];
-  $("mktNote").textContent = `Next 4 weeks, expected: book ${pct(b20.mean)} (middle half ${pct(b20.p25)} to ${pct(b20.p75)}), all liquid stocks ${pct(u20.mean)}. The replay's typical 4-week move, not a read on news.`;
+  $("mktNote").textContent = `4 weeks: book ${pct(b20.mean)} (middle half ${pct(b20.p25)} to ${pct(b20.p75)}) · all stocks ${pct(u20.mean)}`;
   legend("stkLegend", [{ c: "--ink", n: "Actual" }, { c: "--accent", n: "Expected" }, { c: "--wash-2", n: "middle half", cls: "band" }, { c: "--wash", n: "8 in 10", cls: "band" }]);
   legend("niftyLegend", [{ c: "--s-nifty", n: "Nifty 50" }, { c: "--s-uni", n: "50-day average", cls: "dash" }, { c: "--muted", n: "200-day average", cls: "dash" }]);
   legend("breadthLegend", [{ c: "--accent", n: "% above 200-day average" }, { c: "--s-uni", n: "% above 50-day average" }]);
-  legend("pathLegend", [{ c: "--ink", n: "Actual book" }, { c: "--accent", n: "Forecast, set the week before", cls: "dash" }]);
+  legend("pathLegend", [{ c: "--ink", n: "Actual book" }, { c: "--accent", n: "Forecast", cls: "dash" }]);
   legend("perfLegend", SER);
   // ledger
   const S = D.tracker.summary || {}, tb = D.tracker.book || [];
@@ -631,10 +620,10 @@ function renderStatic() {
   const pending = D.tracker.rows.filter((r) => !r.final_1w).length;
   const firstScore = tb.length ? fd(iso(addSessions(pd(tb[tb.length - 1].base_date), 5)), true) : "-";
   const k = (v, l, c, kl) => `<div class="kpi"><div class="l">${l}</div><div class="v ${kl || ""}">${v}</div><div class="c">${c}</div></div>`;
-  $("calKpis").innerHTML = k(S.scored_1w || 0, "Live stock forecasts scored", pending + " still inside their first week") +
-    k(S.in50_pct == null ? "-" : S.in50_pct + "%", "Landed in the middle half", "about 50% means well calibrated") +
-    k(S.in80_pct == null ? "-" : S.in80_pct + "%", "Landed in the 8-in-10 range", "about 80% means well calibrated") +
-    k(done.length ? pct((actB - 1) * 100) : "-", "Model book, actual", done.length ? `expected ${pct((expB - 1) * 100)} over ${done.length} weeks` : "first week is scored " + firstScore);
+  $("calKpis").innerHTML = k(S.scored_1w || 0, "Forecasts scored", pending + " pending") +
+    k(S.in50_pct == null ? "-" : S.in50_pct + "%", "In middle half", "target 50%") +
+    k(S.in80_pct == null ? "-" : S.in80_pct + "%", "In 8-in-10 range", "target 80%") +
+    k(done.length ? pct((actB - 1) * 100) : "-", "Book, actual", done.length ? `expected ${pct((expB - 1) * 100)} over ${done.length} weeks` : "first score " + firstScore);
   badge("ledger", S.scored_1w ? S.scored_1w : "");
   $("bookPredTbl").innerHTML = '<thead><tr><th>Week from</th><th class="n">Expected</th><th class="n">Middle half</th><th class="n">Actual</th><th>Result</th></tr></thead><tbody>' +
     tb.map((r) => `<tr><td>${fdy(r.base_date)}</td><td class="n">${pct(r.exp, 2)}</td><td class="n">${pct(r.p25)} to ${pct(r.p75)}</td><td class="n ${cls(r.act)}">${pct(r.act, 2)}</td><td>${!r.final ? '<span class="sub">running</span>' : r.act >= r.p25 && r.act <= r.p75 ? "inside" : r.act > r.p75 ? "better" : "worse"}</td></tr>`).join("") + "</tbody>";
@@ -643,34 +632,35 @@ function renderStatic() {
       : '<tr><td colspan="7" class="sub">No forecasts logged yet.</td></tr>') + "</tbody>";
   // model book
   const cnt = { hold: 0, watch: 0, risk: 0, buy: 0 }; D.book.forEach((b) => { cnt[b.status]++; });
-  $("bookSub").textContent = `${D.book.length} stocks at equal weight: ${cnt.hold} hold, ${cnt.watch} watch (rank ${R.watch_rank + 1} to ${R.sell_rank}), ${cnt.risk} at risk (past ${R.sell_rank}). Tap a row for its forecast.`;
+  $("bookSub").textContent = `${cnt.hold} hold · ${cnt.watch} watch · ${cnt.risk} at risk`;
   badge("book", cnt.risk ? cnt.risk + " at risk" : "", cnt.risk > 0);
   $("bookTbl").innerHTML = '<thead><tr><th>Status</th><th>Stock</th><th>Rank</th><th class="n">Bought</th><th class="n">Last</th><th class="n">Return</th><th class="n hide-m">Expect sell</th><th class="n hide-m">Expected from here</th></tr></thead><tbody>' +
     D.book.map((b) => `<tr class="click" data-sym="${esc(b.symbol)}"><td>${st(b.status)}</td><td><span class="sym">${esc(b.symbol)}</span>${b.red_flag ? `<span class="flag">${esc(b.red_flag)}</span>` : ""}</td><td style="white-space:nowrap">${rankBar(b.rank)}<span class="mono">${b.rank || "out"}</span></td><td class="n">${fdy(b.entry_date)} @ ${px(b.entry_px)}</td><td class="n">${px(b.close)}</td><td class="n ${cls(b.ret_pct)}">${pct(b.ret_pct)}</td><td class="n hide-m">${fd(b.exp_exit_date)}</td><td class="n hide-m">${pct(b.exp_exit_ret)} <span class="sub">(${pct(b.exp_exit_p25, 0)} to ${pct(b.exp_exit_p75, 0)})</span></td></tr>`).join("") + "</tbody>";
   const pv = D.preview;
   $("preview").textContent = pv && (pv.sells.length || pv.buys.length)
-    ? `If the week ended at the latest close: sell ${pv.sells.map((x) => x.symbol).join(", ") || "nothing"}; buy ${pv.buys.map((x) => x.symbol).join(", ") || "nothing"}. Preview only: the rule acts on Friday's close.`
-    : "If the week ended at the latest close, the model book would not change.";
+    ? `If the week ended now: sell ${pv.sells.map((x) => x.symbol).join(", ") || "nothing"}, buy ${pv.buys.map((x) => x.symbol).join(", ") || "nothing"}`
+    : "If the week ended now: no change";
   // track record
   const P0 = D.perf, rp = P0.replay.book, ru = P0.replay.universe, lv = P0.live;
   $("kpis").innerHTML = k(pct(lv.book), "Live since " + fdy(lv.from), `Universe ${pct(lv.universe)}, Nifty ${pct(lv.nifty)}`, cls(lv.book)) +
     k(pct(P0.ytd.book), "This year", `Universe ${pct(P0.ytd.universe)}, Nifty ${pct(P0.ytd.nifty)}`, cls(P0.ytd.book)) +
     k(rp.cagr + "%", "Replay CAGR since " + fdy(P0.replay.from), `Universe ${ru.cagr}%, worst drawdown ${rp.maxdd}%`) +
-    k(P0.trades.win_rate + "%", "Trades that made money", `${P0.trades.closed} closed, typical hold ${P0.trades.median_hold} sessions`);
-  $("perfNote").textContent = `Rebased to 100 at the start of the range, after ${R.round_trip_pct}% per round trip. Before ${fdy(R.live_start)} it is a replay; after, live paper trading. Prices are split-adjusted.`;
+    k(P0.trades.win_rate + "%", "Win rate", `${P0.trades.closed} trades, median hold ${P0.trades.median_hold} sessions`);
+  $("perfNote").textContent = `After ${R.round_trip_pct}% costs per round trip. Replay before ${fdy(R.live_start)}, live after.`;
   const rebs = [D.last_rebalance].concat(D.recent_rebalances);
   $("rebTbl").innerHTML = '<thead><tr><th>Signal</th><th>Orders</th><th>Sold</th><th>Bought</th></tr></thead><tbody>' + rebs.map((r) => `<tr><td>${fdy(r.signal_date)}${r.signal_date >= R.live_start ? ' <span class="dot" title="live" style="background:var(--accent)"></span>' : ""}</td><td>${r.fill_date ? fdy(r.fill_date) : "next session"}</td><td>${r.sells.map((x) => `<span class="mono ${cls(x.ret_pct)}">${esc(x.symbol)}${x.ret_pct != null ? " " + pct(x.ret_pct) : ""}</span>`).join(", ") || '<span class="sub">none</span>'}</td><td class="mono">${r.buys.map((x) => esc(x.symbol)).join(", ") || '<span class="sub">none</span>'}</td></tr>`).join("") + "</tbody>";
   $("closedTbl").innerHTML = '<thead><tr><th>Stock</th><th class="n">Bought</th><th class="n">Sold</th><th class="n">Days</th><th class="n">Net</th><th class="hide-m">Why sold</th></tr></thead><tbody>' + D.closed_recent.map((c) => `<tr><td class="sym">${esc(c.symbol)}</td><td class="n">${fdy(c.entry_date)} @ ${px(c.entry_px)}</td><td class="n">${fdy(c.exit_date)} @ ${px(c.exit_px)}</td><td class="n">${c.held_sessions}</td><td class="n ${cls(c.ret_pct)}">${pct(c.ret_pct)}</td><td class="hide-m sub">${esc(c.why)}</td></tr>`).join("") + "</tbody>";
   $("topTbl").innerHTML = '<thead><tr><th class="n">#</th><th>Stock</th><th class="n">Last</th><th class="n">1 week</th><th class="n">1 month</th><th class="n hide-m">12-1 mom</th><th>Book</th></tr></thead><tbody>' + D.top_now.map((r) => `<tr><td class="n">${r.rank}</td><td><span class="sym">${esc(r.symbol)}</span>${r.red_flag ? `<span class="flag">${esc(r.red_flag)}</span>` : ""}</td><td class="n">${px(r.close)}</td><td class="n ${cls(r.w1_pct)}">${pct(r.w1_pct)}</td><td class="n ${cls(r.m1_pct)}">${pct(r.m1_pct)}</td><td class="n hide-m">${pct(r.mom_12_1_pct, 0)}</td><td>${r.in_book ? '<span class="chip"><span class="dot" style="background:var(--accent)"></span>held</span>' : ""}</td></tr>`).join("") + "</tbody>";
   $("rules").innerHTML =
-    `<h3>Score</h3><p>Two percentile ranks averaged across the ${D.eligible} eligible NSE stocks (median daily turnover at least Rs ${R.min_turnover_cr} cr, price 20 to 20,000, a year of history, no ETFs): 12-month momentum skipping the last month divided by 6-month volatility, and residual momentum, the part of the move the market does not explain.</p>` +
-    `<h3>When</h3><p>Every week. The signal is Friday's close; orders go in the next session near that day's VWAP. New money can go in any day using the current ranks.</p>` +
-    `<h3>Buy</h3><p>Only stocks ranked 1 to ${R.top}, to fill free slots. Equal money in each. A holding that grows past twice its share is trimmed back.</p>` +
-    `<h3>Sell</h3><p>When a stock's rank falls past ${R.sell_rank}, or it drops out of the eligible universe. Every sell is replaced by a buy the same day, so the money stays invested.</p>` +
-    `<h3>Holding time</h3><p>Typically ${P0.trades.median_hold} sessions; a quarter of trades last under ${P0.trades.p25_hold}. Holding for only days was tested and lost to costs.</p>` +
-    `<h3>No stop losses, no market timing</h3><p>Every filter tested cut the return more than the drawdown. Expect a 25 to 30% drawdown at some point.</p>` +
-    `<h3>Limits</h3><p>The replay covers one Indian bull market (2021 to 2026). In 2024 to 2026 the weekly version made about 26% a year against 34% for the monthly version; weekly was chosen to match a weeks-long holding horizon.</p>` +
-    `<p class="sub">Personal research tool. Backtested results describe the past and are not a recommendation to buy or sell any security.</p>`;
+    `<h3>Score</h3><p>Average of two percentile ranks across ${D.eligible} NSE stocks: 12-1 month momentum over 6-month volatility, and residual momentum (the move the market does not explain).</p>` +
+    `<h3>Universe</h3><p>Turnover at least Rs ${R.min_turnover_cr} cr a day, price 20 to 20,000, a year of history, no ETFs.</p>` +
+    `<h3>When</h3><p>Weekly. Signal at Friday's close, orders next session near VWAP.</p>` +
+    `<h3>Buy</h3><p>Ranks 1 to ${R.top} into free slots, equal weight. Trim any holding over 2x its share.</p>` +
+    `<h3>Sell</h3><p>Rank past ${R.sell_rank}, or out of the universe. Each sell is replaced the same day.</p>` +
+    `<h3>Holding time</h3><p>Median ${P0.trades.median_hold} sessions. Holding only days lost to costs.</p>` +
+    `<h3>No stops, no market timing</h3><p>Every filter tested cut return more than drawdown. Expect 25 to 30% drawdowns.</p>` +
+    `<h3>Limits</h3><p>The replay covers one bull market (2021 to 2026). In 2024 to 2026, weekly made about 26% a year vs 34% for monthly.</p>` +
+    `<p class="sub">Research project. Not investment advice.</p>`;
 }
 $("predTbl").addEventListener("click", (e) => { const t = e.target.closest("tr[data-sym]"); if (t) showStock(t.getAttribute("data-sym")); });
 $("bookTbl").addEventListener("click", (e) => { const t = e.target.closest("tr[data-sym]"); if (t) showStock(t.getAttribute("data-sym")); });
@@ -714,7 +704,7 @@ async function renderSettings() {
   const perm = "Notification" in window ? Notification.permission : "unsupported";
   let sub = null; try { sub = await pushSub(); } catch (e) {}
   $("notifStatus").innerHTML = perm === "granted" && sub ? `<span class="chip"><span class="dot" style="background:var(--good)"></span>On for this phone</span> &middot; ${cache.subs || 1} device${(cache.subs || 1) === 1 ? "" : "s"} registered`
-    : perm === "denied" ? '<span class="chip"><span class="dot" style="background:var(--bad)"></span>Blocked. Allow notifications for this app in Android settings.</span>'
+    : perm === "denied" ? '<span class="chip"><span class="dot" style="background:var(--bad)"></span>Blocked in Android settings</span>'
     : '<span class="chip"><span class="dot" style="background:var(--muted)"></span>Off</span>';
   $("btnNotif").textContent = perm === "granted" && sub ? "Re-register this phone" : "Turn on notifications";
   $("prefRemind").checked = twin.prefs ? twin.prefs.remind !== false : true;
@@ -725,7 +715,7 @@ async function renderSettings() {
   $("devKv").innerHTML = [
     ["Paired", KEY ? "yes" : "no"], ["Market data", D ? `close of ${fd(D.asof, true)}` : "none yet"], ["Received", cache.payload_at ? ago(cache.payload_at) : "-"],
     ["Last sync", ago(lastSync)], ["Waiting to upload", outbox.length ? outbox.length + " change" + (outbox.length > 1 ? "s" : "") : "nothing"],
-    ["Installed", standalone ? "yes" : "no, open from Chrome menu > Install app"], ["App version", VERSION],
+    ["Installed", standalone ? "yes" : "no"], ["App version", VERSION],
   ].map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
 }
 function renderSyncChip() {
